@@ -6,6 +6,43 @@
 
 using namespace std;
 
+int sumGF(int a, int b) {
+    return a ^ b;
+}
+
+int multGF(int a, int b, int m, int p) {
+    int result = 0;
+    int highBit = 1 << m;
+
+    while (b > 0) {
+        if (b & 1) result ^= a;
+
+        b >>= 1;
+        a <<= 1;
+
+        if (a & highBit) a ^= p;
+    }
+
+    return result;
+}
+
+int powerGF(int a, int k, int m, int p) {
+    int result = 1;
+
+    while (k > 0) {
+        if (k & 1) result = multGF(result, a, m, p);
+        a = multGF(a, a, m, p);
+        k >>= 1;
+    }
+
+    return result;
+}
+
+int inverseGF(int a, int m, int p) {
+    if (a == 0) return -1;
+    return powerGF(a, (1 << m) - 2, m, p);
+}
+
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         cerr << "Error: use program.exe input.txt\n";
