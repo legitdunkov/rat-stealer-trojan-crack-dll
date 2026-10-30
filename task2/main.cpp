@@ -6,6 +6,41 @@
 
 using namespace std;
 
+int degreePoly(int a) {
+    int degree = -1;
+
+    while (a > 0) {
+        a >>= 1;
+        ++degree;
+    }
+
+    return degree;
+}
+
+int remainderPoly(int a, int b) {
+    int degreeB = degreePoly(b);
+
+    while (degreePoly(a) >= degreeB) {
+        int shift = degreePoly(a) - degreeB;
+        a ^= b << shift;
+    }
+
+    return a;
+}
+
+bool irreduciblePoly(int p, int m) {
+    for (int degree = 1; degree <= m / 2; ++degree) {
+        int first = 1 << degree;
+        int last = 1 << (degree + 1);
+
+        for (int q = first; q < last; ++q) {
+            if (remainderPoly(p, q) == 0) return false;
+        }
+    }
+
+    return true;
+}
+
 int sumGF(int a, int b) {
     return a ^ b;
 }
@@ -62,6 +97,16 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    if (degreePoly(p) != m) {
+        cerr << "Error: polynomial degree must be equal to m\n";
+        return 1;
+    }
+
+    if (!irreduciblePoly(p, m)) {
+        cerr << "Error: polynomial is reducible\n";
+        return 1;
+    }
+
     if (!(in >> dec >> n) || n < 1 || n > 8) {
         cerr << "Error: n must be from 1 to 8\n";
         return 1;
@@ -73,6 +118,11 @@ int main(int argc, char* argv[]) {
         for (int j = 0; j < n; ++j) {
             if (!(in >> hex >> A[i][j])) {
                 cerr << "Error: incorrect number of matrix elements\n";
+                return 1;
+            }
+
+            if (A[i][j] < 0 || A[i][j] >= (1 << m)) {
+                cerr << "Error: matrix element is not in the field\n";
                 return 1;
             }
         }
