@@ -1,0 +1,9 @@
+program
+program.exe
+*.o
+*.obj
+.vs/
+Debug/
+Release/
+x64/
+x86/
