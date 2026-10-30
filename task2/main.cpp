@@ -1,5 +1,8 @@
 #include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <string>
+#include <vector>
 
 using namespace std;
 
@@ -15,7 +18,47 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    cout << "Input file opened successfully\n";
+    int m, p, n;
+
+    if (!(in >> m >> hex >> p) || m < 1 || m > 8) {
+        cerr << "Error: incorrect field parameters\n";
+        return 1;
+    }
+
+    if (!(in >> dec >> n) || n < 1 || n > 8) {
+        cerr << "Error: n must be from 1 to 8\n";
+        return 1;
+    }
+
+    vector<vector<int>> A(n, vector<int>(n));
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            if (!(in >> hex >> A[i][j])) {
+                cerr << "Error: incorrect number of matrix elements\n";
+                return 1;
+            }
+        }
+    }
+
+    string extra;
+    if (in >> extra) {
+        cerr << "Error: too many matrix elements\n";
+        return 1;
+    }
+
+    cout << "field: GF(2^" << dec << m << "), p = 0x"
+         << uppercase << hex << p << '\n';
+    cout << "n = " << dec << n << '\n';
+    cout << "matrix:\n";
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            cout << uppercase << hex << A[i][j];
+            if (j + 1 < n) cout << ' ';
+        }
+        cout << '\n';
+    }
 
     return 0;
 }
