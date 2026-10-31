@@ -78,6 +78,92 @@ int inverseGF(int a, int m, int p) {
     return powerGF(a, (1 << m) - 2, m, p);
 }
 
+int countBits(int mask) {
+    int count = 0;
+
+    while (mask > 0) {
+        count += mask & 1;
+        mask >>= 1;
+    }
+
+    return count;
+}
+
+int determinantGF(vector<vector<int>> B, int m, int p) {
+    int n = B.size();
+    int result = 1;
+
+    for (int col = 0; col < n; ++col) {
+        int pivot = col;
+
+        while (pivot < n && B[pivot][col] == 0) ++pivot;
+        if (pivot == n) return 0;
+
+        if (pivot != col) B[pivot].swap(B[col]);
+
+        result = multGF(result, B[col][col], m, p);
+        int inverse = inverseGF(B[col][col], m, p);
+
+        for (int row = col + 1; row < n; ++row) {
+            int factor = multGF(B[row][col], inverse, m, p);
+
+            for (int j = col; j < n; ++j) {
+                B[row][j] = sumGF(B[row][j],
+                                  multGF(factor, B[col][j], m, p));
+            }
+        }
+    }
+
+    return result;
+}
+
+bool checkMDS(const vector<vector<int>>& A, int m, int p,
+              vector<int>& zeroRows, vector<int>& zeroCols) {
+    int n = A.size();
+    int limit = 1 << n;
+
+    for (int size = 1; size <= n; ++size) {
+        for (int rowMask = 1; rowMask < limit; ++rowMask) {
+            if (countBits(rowMask) != size) continue;
+
+            for (int colMask = 1; colMask < limit; ++colMask) {
+                if (countBits(colMask) != size) continue;
+
+                vector<vector<int>> minor;
+
+                for (int i = 0; i < n; ++i) {
+                    if ((rowMask & (1 << i)) == 0) continue;
+
+                    vector<int> row;
+                    for (int j = 0; j < n; ++j) {
+                        if (colMask & (1 << j)) row.push_back(A[i][j]);
+                    }
+                    minor.push_back(row);
+                }
+
+                if (determinantGF(minor, m, p) == 0) {
+                    for (int i = 0; i < n; ++i) {
+                        if (rowMask & (1 << i)) zeroRows.push_back(i);
+                        if (colMask & (1 << i)) zeroCols.push_back(i);
+                    }
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
+void printIndexes(const vector<int>& indexes) {
+    cout << '{';
+    for (int i = 0; i < (int)indexes.size(); ++i) {
+        if (i > 0) cout << ',';
+        cout << indexes[i];
+    }
+    cout << '}';
+}
+
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         cerr << "Error: use program.exe input.txt\n";
@@ -144,6 +230,19 @@ int main(int argc, char* argv[]) {
             cout << uppercase << hex << A[i][j];
             if (j + 1 < n) cout << ' ';
         }
+        cout << '\n';
+    }
+
+    vector<int> zeroRows, zeroCols;
+
+    if (checkMDS(A, m, p, zeroRows, zeroCols)) {
+        cout << "MDS: yes\n";
+    } else {
+        cout << "MDS: no\n";
+        cout << "first zero minor: rows ";
+        printIndexes(zeroRows);
+        cout << ", columns ";
+        printIndexes(zeroCols);
         cout << '\n';
     }
 
