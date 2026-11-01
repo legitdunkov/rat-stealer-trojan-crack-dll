@@ -159,9 +159,81 @@ void printIndexes(const vector<int>& indexes) {
     cout << '{';
     for (int i = 0; i < (int)indexes.size(); ++i) {
         if (i > 0) cout << ',';
-        cout << indexes[i];
+        cout << dec << indexes[i];
     }
     cout << '}';
+}
+
+vector<vector<int>> makeMultTable(int m, int p) {
+    int q = 1 << m;
+    vector<vector<int>> table(q, vector<int>(q));
+
+    for (int a = 0; a < q; ++a) {
+        for (int b = 0; b < q; ++b) {
+            table[a][b] = multGF(a, b, m, p);
+        }
+    }
+
+    return table;
+}
+
+int vectorWeight(const vector<int>& x) {
+    int weight = 0;
+    for (int value : x) {
+        if (value != 0) ++weight;
+    }
+    return weight;
+}
+
+int branchNumber(const vector<vector<int>>& A, int m,
+                 const vector<vector<int>>& table, bool transpose,
+                 vector<int>& bestX, vector<int>& bestY) {
+    int n = A.size();
+    int q = 1 << m;
+    int total = 1 << (m * n);
+    int best = 2 * n + 1;
+    vector<int> x(n), y(n);
+
+    for (int code = 1; code < total; ++code) {
+        int number = code;
+
+        for (int i = 0; i < n; ++i) {
+            x[i] = number & (q - 1);
+            number >>= m;
+        }
+
+        int weightX = vectorWeight(x);
+        if (weightX >= best) continue;
+
+        for (int i = 0; i < n; ++i) {
+            y[i] = 0;
+
+            for (int j = 0; j < n; ++j) {
+                int value = transpose ? A[j][i] : A[i][j];
+                y[i] ^= table[value][x[j]];
+            }
+        }
+
+        int current = weightX + vectorWeight(y);
+        if (current < best) {
+            best = current;
+            bestX = x;
+            bestY = y;
+        }
+
+        if (best == 1) break;
+    }
+
+    return best;
+}
+
+void printVector(const vector<int>& x) {
+    cout << '{';
+    for (int i = 0; i < (int)x.size(); ++i) {
+        if (i > 0) cout << ',';
+        cout << uppercase << hex << x[i];
+    }
+    cout << '}' << dec;
 }
 
 int main(int argc, char* argv[]) {
@@ -235,7 +307,9 @@ int main(int argc, char* argv[]) {
 
     vector<int> zeroRows, zeroCols;
 
-    if (checkMDS(A, m, p, zeroRows, zeroCols)) {
+    bool isMDS = checkMDS(A, m, p, zeroRows, zeroCols);
+
+    if (isMDS) {
         cout << "MDS: yes\n";
     } else {
         cout << "MDS: no\n";
@@ -244,6 +318,40 @@ int main(int argc, char* argv[]) {
         cout << ", columns ";
         printIndexes(zeroCols);
         cout << '\n';
+    }
+
+    int bits = m * n;
+
+    if (bits <= 24) {
+        vector<vector<int>> table = makeMultTable(m, p);
+        vector<int> xD, yD, xL, yL;
+
+        int betaD = branchNumber(A, m, table, false, xD, yD);
+        int betaL = branchNumber(A, m, table, true, xL, yL);
+
+        cout << "beta_d = " << dec << betaD << '\n';
+        cout << "differential witness: x = ";
+        printVector(xD);
+        cout << ", A*x = ";
+        printVector(yD);
+        cout << '\n';
+
+        cout << "beta_l = " << dec << betaL << '\n';
+        cout << "linear witness: x = ";
+        printVector(xL);
+        cout << ", A^T*x = ";
+        printVector(yL);
+        cout << '\n';
+    } else {
+        cout << "exhaustive search: skipped, 2^" << dec << bits
+             << " > 2^24\n";
+
+        if (isMDS) {
+            cout << "beta_d = " << n + 1 << " (MDS criterion)\n";
+            cout << "beta_l = " << n + 1 << " (MDS criterion)\n";
+        } else {
+            cout << "beta_d and beta_l are not calculated\n";
+        }
     }
 
     return 0;
