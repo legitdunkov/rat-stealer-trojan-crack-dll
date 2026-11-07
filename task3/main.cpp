@@ -1,7 +1,120 @@
+#include <algorithm>
+#include <cstdlib>
 #include <iostream>
 #include <string>
+#include <vector>
 
 using namespace std;
+
+int ves(int x) {
+    int result = 0;
+
+    while (x > 0) {
+        result += x & 1;
+        x >>= 1;
+    }
+
+    return result;
+}
+
+int scal(int a, int b) {
+    return ves(a & b) % 2;
+}
+
+void BPF(vector<int>& f) {
+    int N = f.size();
+
+    for (int len = 1; len < N; len *= 2) {
+        for (int i = 0; i < N; i += 2 * len) {
+            for (int j = 0; j < len; ++j) {
+                int a = f[i + j];
+                int b = f[i + j + len];
+                f[i + j] = a + b;
+                f[i + j + len] = a - b;
+            }
+        }
+    }
+}
+
+bool isPodstanovka(const vector<int>& S) {
+    int N = S.size();
+    vector<int> used(N, 0);
+
+    for (int value : S) {
+        if (value < 0 || value >= N || used[value]) return false;
+        used[value] = 1;
+    }
+
+    return true;
+}
+
+int deltaS(const vector<int>& S) {
+    int N = S.size();
+    int delta = 0;
+
+    for (int a = 1; a < N; ++a) {
+        vector<int> count(N, 0);
+
+        for (int x = 0; x < N; ++x) {
+            int b = S[x] ^ S[x ^ a];
+            count[b]++;
+        }
+
+        for (int value : count) delta = max(delta, value);
+    }
+
+    return delta;
+}
+
+int lambdaS(const vector<int>& S) {
+    int N = S.size();
+    int lambda = 0;
+
+    for (int b = 1; b < N; ++b) {
+        vector<int> f(N);
+
+        for (int x = 0; x < N; ++x) {
+            f[x] = scal(b, S[x]) ? -1 : 1;
+        }
+
+        BPF(f);
+        for (int value : f) lambda = max(lambda, abs(value));
+    }
+
+    return lambda;
+}
+
+int stepenF(const vector<int>& S, int b, int n) {
+    int N = S.size();
+    vector<int> anf(N);
+
+    for (int x = 0; x < N; ++x) anf[x] = scal(b, S[x]);
+
+    for (int i = 0; i < n; ++i) {
+        for (int mask = 0; mask < N; ++mask) {
+            if (mask & (1 << i)) {
+                anf[mask] ^= anf[mask ^ (1 << i)];
+            }
+        }
+    }
+
+    int degree = 0;
+    for (int mask = 0; mask < N; ++mask) {
+        if (anf[mask]) degree = max(degree, ves(mask));
+    }
+
+    return degree;
+}
+
+int stepenS(const vector<int>& S, int n) {
+    int degree = 0;
+
+    for (int i = 0; i < n; ++i) {
+        degree = max(degree, stepenF(S, 1 << i, n));
+    }
+
+    return degree;
+}
 
 struct Parameters {
     string optimal;
