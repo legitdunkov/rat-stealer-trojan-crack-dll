@@ -1,5 +1,8 @@
+#include <algorithm>
+#include <chrono>
 #include <iomanip>
 #include <iostream>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -147,6 +150,52 @@ bool checkMDS(const vector<vector<int>>& A, int m, int p) {
     return true;
 }
 
+vector<vector<int>> makeCauchy(int n, int p, mt19937_64& generator,
+                               vector<int>& x, vector<int>& y) {
+    vector<int> elements(256);
+    for (int i = 0; i < 256; ++i) elements[i] = i;
+
+    shuffle(elements.begin(), elements.end(), generator);
+    x.assign(elements.begin(), elements.begin() + n);
+    y.assign(elements.begin() + n, elements.begin() + 2 * n);
+
+    vector<vector<int>> A(n, vector<int>(n));
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            A[i][j] = inverseGF(x[i] ^ y[j], 8, p);
+        }
+    }
+
+    return A;
+}
+
+void printMatrix(const vector<vector<int>>& A, int p) {
+    cout << "8 " << uppercase << hex << p << '\n';
+    cout << dec << A.size() << '\n';
+    cout << uppercase << hex << setfill('0');
+
+    for (const vector<int>& row : A) {
+        for (int j = 0; j < (int)row.size(); ++j) {
+            if (j > 0) cout << ' ';
+            cout << setw(2) << row[j];
+        }
+        cout << '\n';
+    }
+
+    cout << dec << setfill(' ');
+}
+
+unsigned long long randomSeed() {
+    random_device device;
+    unsigned long long timeValue = chrono::high_resolution_clock::now()
+                                       .time_since_epoch()
+                                       .count();
+
+    return (static_cast<unsigned long long>(device()) << 32) ^
+           static_cast<unsigned long long>(device()) ^ timeValue;
+}
+
 struct Parameters {
     string construction;
     int n = 0;
@@ -273,6 +322,23 @@ int main(int argc, char* argv[]) {
     if (!irreduciblePoly(p.polynomial, 8)) {
         cerr << "Error: polynomial is reducible\n";
         return 1;
+    }
+
+    if (p.construction == "cauchi") {
+        if (!p.seedSet) p.seed = randomSeed();
+
+        mt19937_64 generator(p.seed);
+        vector<int> x, y;
+        vector<vector<int>> A = makeCauchy(p.n, p.polynomial,
+                                           generator, x, y);
+
+        if (!checkMDS(A, 8, p.polynomial)) {
+            cerr << "Error: generated matrix is not MDS\n";
+            return 1;
+        }
+
+        printMatrix(A, p.polynomial);
+        return 0;
     }
 
     cout << "construction: " << p.construction << '\n';
