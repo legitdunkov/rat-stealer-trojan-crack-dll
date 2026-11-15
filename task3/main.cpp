@@ -1,6 +1,9 @@
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -168,6 +171,112 @@ vector<int> baseSbox(int n, const string& optimal) {
     return S;
 }
 
+vector<int> randomMatrix(int n, mt19937_64& generator) {
+    vector<int> rows(n);
+
+    for (int i = 0; i < n; ++i) rows[i] = 1 << i;
+
+    uniform_int_distribution<int> index(0, n - 1);
+    uniform_int_distribution<int> operation(0, 1);
+
+    for (int k = 0; k < 8 * n; ++k) {
+        int i = index(generator);
+        int j = index(generator);
+
+        if (i == j) {
+            --k;
+            continue;
+        }
+
+        if (operation(generator) == 0) swap(rows[i], rows[j]);
+        else rows[i] ^= rows[j];
+    }
+
+    return rows;
+}
+
+int linearMap(int x, const vector<int>& rows) {
+    int result = 0;
+
+    for (int i = 0; i < (int)rows.size(); ++i) {
+        if (scal(x, rows[i])) result |= 1 << i;
+    }
+
+    return result;
+}
+
+vector<int> affineSbox(const vector<int>& base, int n,
+                       mt19937_64& generator) {
+    int N = 1 << n;
+    vector<int> A = randomMatrix(n, generator);
+    vector<int> B = randomMatrix(n, generator);
+    vector<int> S(N);
+    uniform_int_distribution<int> value(0, N - 1);
+    int a = value(generator);
+    int b = value(generator);
+
+    for (int x = 0; x < N; ++x) {
+        int y = linearMap(x, A) ^ a;
+        S[x] = linearMap(base[y], B) ^ b;
+    }
+
+    return S;
+}
+
+struct Characteristics {
+    int delta;
+    int lambda;
+    int degree;
+};
+
+Characteristics checkSbox(const vector<int>& S, int n) {
+    return {deltaS(S), lambdaS(S), stepenS(S, n)};
+}
+
+bool correctCriterion(const Characteristics& c, const string& optimal, int n) {
+    int lambdaLimit[] = {0, 0, 0, 4, 8, 8, 16, 16, 32};
+
+    if (optimal == "dc") return c.delta <= 6;
+    if (optimal == "lc") return c.lambda <= lambdaLimit[n];
+    return c.degree == n - 1;
+}
+
+bool alreadyGenerated(const vector<vector<int>>& all, const vector<int>& S) {
+    for (const vector<int>& current : all) {
+        if (current == S) return true;
+    }
+
+    return false;
+}
+
+void printSbox(const vector<int>& S, int n, const string& optimal,
+               const Characteristics& c) {
+    int width = (n + 3) / 4;
+
+    cout << "n = " << n << ", criterion: " << optimal << '\n';
+    cout << uppercase << hex << setfill('0');
+
+    for (int i = 0; i < (int)S.size(); ++i) {
+        if (i > 0) cout << ' ';
+        cout << setw(width) << S[i];
+    }
+
+    cout << dec << setfill(' ') << '\n';
+    cout << "differential uniformity: " << c.delta << '\n';
+    cout << "linear characteristic: " << c.lambda << '\n';
+    cout << "degree: " << c.degree << '\n';
+}
+
+unsigned long long randomSeed() {
+    random_device device;
+    unsigned long long timeValue = chrono::high_resolution_clock::now()
+                                       .time_since_epoch()
+                                       .count();
+
+    return (static_cast<unsigned long long>(device()) << 32) ^
+           static_cast<unsigned long long>(device()) ^ timeValue;
+}
+
 struct Parameters {
     string optimal;
     int n = 0;
@@ -266,12 +375,25 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    cout << "criterion: " << p.optimal << '\n';
-    cout << "n: " << p.n << '\n';
-    cout << "count: " << p.count << '\n';
+    if (!p.seedSet) p.seed = randomSeed();
 
-    if (p.seedSet) cout << "seed: " << p.seed << '\n';
-    else cout << "seed: random\n";
+    mt19937_64 generator(p.seed);
+    vector<int> base = baseSbox(p.n, p.optimal);
+    vector<vector<int>> generated;
+
+    while ((int)generated.size() < p.count) {
+        vector<int> S = affineSbox(base, p.n, generator);
+
+        if (alreadyGenerated(generated, S)) continue;
+        if (!isPodstanovka(S)) continue;
+
+        Characteristics c = checkSbox(S, p.n);
+        if (!correctCriterion(c, p.optimal, p.n)) continue;
+
+        if (!generated.empty()) cout << '\n';
+        printSbox(S, p.n, p.optimal, c);
+        generated.push_back(S);
+    }
 
     return 0;
 }
