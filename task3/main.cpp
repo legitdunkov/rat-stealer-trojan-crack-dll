@@ -116,6 +116,58 @@ int stepenS(const vector<int>& S, int n) {
     return degree;
 }
 
+int fieldPolynomial(int n) {
+    int polynomials[] = {0, 0, 0, 0xB, 0x13, 0x25,
+                         0x43, 0x83, 0x11B};
+    return polynomials[n];
+}
+
+int multGF(int a, int b, int n, int p) {
+    int result = 0;
+    int highBit = 1 << n;
+
+    while (b > 0) {
+        if (b & 1) result ^= a;
+
+        b >>= 1;
+        a <<= 1;
+
+        if (a & highBit) a ^= p;
+    }
+
+    return result;
+}
+
+int powerGF(int a, int degree, int n, int p) {
+    int result = 1;
+
+    while (degree > 0) {
+        if (degree & 1) result = multGF(result, a, n, p);
+        a = multGF(a, a, n, p);
+        degree >>= 1;
+    }
+
+    return result;
+}
+
+vector<int> baseSbox(int n, const string& optimal) {
+    int N = 1 << n;
+    int p = fieldPolynomial(n);
+    vector<int> S(N);
+
+    for (int x = 0; x < N; ++x) {
+        if (optimal == "lc" && n % 2 == 1) {
+            S[x] = multGF(multGF(x, x, n, p), x, n, p);
+        } else if (x == 0) {
+            S[x] = 0;
+        } else {
+            S[x] = powerGF(x, N - 2, n, p);
+        }
+    }
+
+    return S;
+}
+
 struct Parameters {
     string optimal;
     int n = 0;
