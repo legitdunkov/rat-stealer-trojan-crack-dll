@@ -4,6 +4,78 @@
 
 using namespace std;
 
+int degreePoly(int a) {
+    int degree = -1;
+
+    while (a > 0) {
+        a >>= 1;
+        ++degree;
+    }
+
+    return degree;
+}
+
+int remainderPoly(int a, int b) {
+    int degreeB = degreePoly(b);
+
+    while (degreePoly(a) >= degreeB) {
+        int shift = degreePoly(a) - degreeB;
+        a ^= b << shift;
+    }
+
+    return a;
+}
+
+bool irreduciblePoly(int p, int m) {
+    for (int degree = 1; degree <= m / 2; ++degree) {
+        int first = 1 << degree;
+        int last = 1 << (degree + 1);
+
+        for (int q = first; q < last; ++q) {
+            if (remainderPoly(p, q) == 0) return false;
+        }
+    }
+
+    return true;
+}
+
+int sumGF(int a, int b) {
+    return a ^ b;
+}
+
+int multGF(int a, int b, int m, int p) {
+    int result = 0;
+    int highBit = 1 << m;
+
+    while (b > 0) {
+        if (b & 1) result ^= a;
+
+        b >>= 1;
+        a <<= 1;
+
+        if (a & highBit) a ^= p;
+    }
+
+    return result;
+}
+
+int powerGF(int a, int k, int m, int p) {
+    int result = 1;
+
+    while (k > 0) {
+        if (k & 1) result = multGF(result, a, m, p);
+        a = multGF(a, a, m, p);
+        k >>= 1;
+    }
+
+    return result;
+}
+
+int inverseGF(int a, int m, int p) {
+    if (a == 0) return -1;
+    return powerGF(a, (1 << m) - 2, m, p);
+}
+
 struct Parameters {
     string construction;
     int n = 0;
@@ -124,6 +196,11 @@ int main(int argc, char* argv[]) {
     if (!readParameters(argc, argv, p)) {
         cerr << "Use: program.exe -construction=[circl|ffh|cauchi] "
              << "-n=[4..8] [-poly=p] [-seed=s] [-involutory]\n";
+        return 1;
+    }
+
+    if (!irreduciblePoly(p.polynomial, 8)) {
+        cerr << "Error: polynomial is reducible\n";
         return 1;
     }
 
