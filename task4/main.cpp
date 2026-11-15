@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -74,6 +75,76 @@ int powerGF(int a, int k, int m, int p) {
 int inverseGF(int a, int m, int p) {
     if (a == 0) return -1;
     return powerGF(a, (1 << m) - 2, m, p);
+}
+
+int countBits(int mask) {
+    int count = 0;
+
+    while (mask > 0) {
+        count += mask & 1;
+        mask >>= 1;
+    }
+
+    return count;
+}
+
+int determinantGF(vector<vector<int>> B, int m, int p) {
+    int n = B.size();
+    int result = 1;
+
+    for (int col = 0; col < n; ++col) {
+        int pivot = col;
+
+        while (pivot < n && B[pivot][col] == 0) ++pivot;
+        if (pivot == n) return 0;
+
+        if (pivot != col) B[pivot].swap(B[col]);
+
+        result = multGF(result, B[col][col], m, p);
+        int inverse = inverseGF(B[col][col], m, p);
+
+        for (int row = col + 1; row < n; ++row) {
+            int factor = multGF(B[row][col], inverse, m, p);
+
+            for (int j = col; j < n; ++j) {
+                B[row][j] = sumGF(B[row][j],
+                                  multGF(factor, B[col][j], m, p));
+            }
+        }
+    }
+
+    return result;
+}
+
+bool checkMDS(const vector<vector<int>>& A, int m, int p) {
+    int n = A.size();
+    int limit = 1 << n;
+
+    for (int size = 1; size <= n; ++size) {
+        for (int rowMask = 1; rowMask < limit; ++rowMask) {
+            if (countBits(rowMask) != size) continue;
+
+            for (int colMask = 1; colMask < limit; ++colMask) {
+                if (countBits(colMask) != size) continue;
+
+                vector<vector<int>> minor;
+
+                for (int i = 0; i < n; ++i) {
+                    if ((rowMask & (1 << i)) == 0) continue;
+
+                    vector<int> row;
+                    for (int j = 0; j < n; ++j) {
+                        if (colMask & (1 << j)) row.push_back(A[i][j]);
+                    }
+                    minor.push_back(row);
+                }
+
+                if (determinantGF(minor, m, p) == 0) return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 struct Parameters {
